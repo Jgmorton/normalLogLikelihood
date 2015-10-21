@@ -26,6 +26,18 @@ local function grad_s(target, mu, s)
     return g1 + g2
 end
 
+-- Computes log of sum of Gaussian components
+local function logSum(input, target, n)
+    local sum = torch.zeros(input:size(1))
+        for i = 1, n do
+            local w = input[{{}, 3*(i-1) + 1}]
+            local mu = input[{{}, 3*(i-1) + 2}]
+            local s = input[{{}, 3*i}]
+            sum = sum + w * normal(target, mu, s)
+        end
+    return -torch.log(sum)
+end
+
 -- Returns loss
 function normalNLL:updateOutput(input, target)
     -- Single normal distribution
@@ -35,14 +47,7 @@ function normalNLL:updateOutput(input, target)
         self.output = -torch.log(normal(target, mu, s))
 
     elseif self.n > 1 and input:size(2) == 3*self.n then
-        local sum = torch.zeros(input:size(1))
-        for i = 1, n do
-            local w = input[{{}, 3*(i-1) + 1}]
-            local mu = input[{{}, 3*(i-1) + 2}]
-            local s = input[{{}, 3*i}]
-            sum = sum + w * normal(target, mu, s)
-        end
-        self.output = -torch.log(sum)
+        self.output = logSum(input, target, self.n)
     else
         error('Invalid number of inputs')
     end
@@ -65,15 +70,17 @@ function normalNLL:updateGradInput(input, target)
         self.gradInput[{{}, 2}] = grad_s(target, mu, s)
 
     else 
-        for i = 1, n do
+        -- Store constant value
+        local a = logSum(input, target, self.n)
+        for i = 1, self.n do
             local w = input[{{}, 3*(i-1) + 1}]
             local mu = input[{{}, 3*(i-1) + 2}]
             local s = input[{{}, 3*i}]
 
             -- Calculate gradients
-            self.gradInput[{{}, 3*(i-1) + 1}] = -cdiv(normal(target, mu, s), self.output)
-            self.gradInput[{{}, 3*(i-1) + 2}] = cdiv(w * normal(target, mu, s) * grad_mu(target, mu, s), self.output)
-            self.gradInput[{{}, 3*i}] = cdiv(w * normal(target, mu, s) * grad_s(target, mu, s), self.output)
+            self.gradInput[{{}, 3*(i-1) + 1}] = -torch.cdiv(normal(target, mu, s), a)
+            self.gradInput[{{}, 3*(i-1) + 2}] = torch.cdiv(w * (normal(target, mu, s) * grad_mu(target, mu, s)), a)
+            self.gradInput[{{}, 3*i}] = torch.cdiv(w * (normal(target, mu, s) * grad_s(target, mu, s)), a)
         end
     end
     return self.gradInput
