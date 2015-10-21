@@ -1,3 +1,4 @@
+require 'nn'
 local normalNLL, parent = torch.class('normalNLL', 'nn.Criterion')
 
 function normalNLL:__init(n)
