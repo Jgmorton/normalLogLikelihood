@@ -77,7 +77,7 @@ function normalNLL:updateGradInput(input, target)
             local mu = input[{{}, 3*(i-1) + 2}]
             local s = input[{{}, 3*i}]
 
-            -- Calculate gradients
+            -- Calculate gradientsno
             self.gradInput[{{}, 3*(i-1) + 1}] = -torch.cdiv(normal(target, mu, s), a)
             self.gradInput[{{}, 3*(i-1) + 2}] = torch.cdiv(w * (normal(target, mu, s) * grad_mu(target, mu, s)), a)
             self.gradInput[{{}, 3*i}] = torch.cdiv(w * (normal(target, mu, s) * grad_s(target, mu, s)), a)
