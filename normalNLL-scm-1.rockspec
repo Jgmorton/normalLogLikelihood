@@ -2,7 +2,7 @@ package = "normalNLL"
 version = "scm-1"
 
 source = {
-   url = "https://github.com/Jgmorton/normalLogLikelihood",
+   url = "https://github.com/Jgmorton/normalNLL",
    tag = "master"
 }
 
@@ -11,7 +11,7 @@ description = {
    detailed = [[
    	    NLL Loss for Normal/Gaussian mixture distributions
    ]],
-   homepage = "https://github.com/Jgmorton/normalLogLikelihood"
+   homepage = "https://github.com/Jgmorton/normalNLL"
 }
 
 dependencies = {
