@@ -1,3 +1,3 @@
-example = require 'examplepackage'
+example = require 'normalNLL'
 
-example.hellomodule.sayhello()
+C = example.normalNLL()

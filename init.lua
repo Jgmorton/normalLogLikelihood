@@ -1,7 +1,7 @@
 require 'torch'
 
-local examplepackage = {}
+local normalNLL = {}
 
-examplepackage.hellomodule = require 'examplepackage.hellomodule'
+normalNLL.normalNLL = require 'normalNLL.normalNLL'
 
-return examplepackage
+return normalNLL

@@ -1,8 +1,3 @@
-examplepackage.torch
+Normal NLL Loss criterion for Torch7
 ====================
-
-A hello-world for torch packages
-
-You can install the package by opening a terminal, changing directory into the folder and typing:
-
-luarocks make
+Negative log likelihood loss for neural networks predicting normal distributions.  Supports Gaussian mixture distributions of arbitrary size.

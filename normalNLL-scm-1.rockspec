@@ -1,17 +1,17 @@
-package = "examplepackage"
+package = "normalNLL"
 version = "scm-1"
 
 source = {
-   url = "git://github.com/soumith/examplepackage.torch",
+   url = "https://github.com/Jgmorton/normalLogLikelihood",
    tag = "master"
 }
 
 description = {
-   summary = "A hello-world for torch packages",
+   summary = "NLL Loss for Normal/Gaussian mixture distributions",
    detailed = [[
-   	    A hello-world for torch packages
+   	    NLL Loss for Normal/Gaussian mixture distributions
    ]],
-   homepage = "https://github.com/soumith/examplepackage.torch"
+   homepage = "https://github.com/Jgmorton/normalLogLikelihood"
 }
 
 dependencies = {
