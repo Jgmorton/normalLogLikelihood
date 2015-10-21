@@ -30,9 +30,9 @@ end
 local function logSum(input, target, n)
     local sum = torch.zeros(input:size(1))
         for i = 1, n do
-            local w = input[{{}, 3*(i-1) + 1}]
-            local mu = input[{{}, 3*(i-1) + 2}]
-            local s = input[{{}, 3*i}]
+            local w = input[{{}, i}]
+            local mu = input[{{}, n + i}]
+            local s = input[{{}, 2*n + i}]
             sum = sum + w * normal(target, mu, s)
         end
     return -torch.log(sum)
@@ -73,14 +73,14 @@ function normalNLL:updateGradInput(input, target)
         -- Store constant value
         local a = logSum(input, target, self.n)
         for i = 1, self.n do
-            local w = input[{{}, 3*(i-1) + 1}]
-            local mu = input[{{}, 3*(i-1) + 2}]
-            local s = input[{{}, 3*i}]
+            local w = input[{{}, i}]
+            local mu = input[{{}, self.n + i}]
+            local s = input[{{}, 2*self.n + i}]
 
             -- Calculate gradientsno
-            self.gradInput[{{}, 3*(i-1) + 1}] = -torch.cdiv(normal(target, mu, s), a)
-            self.gradInput[{{}, 3*(i-1) + 2}] = torch.cdiv(w * (normal(target, mu, s) * grad_mu(target, mu, s)), a)
-            self.gradInput[{{}, 3*i}] = torch.cdiv(w * (normal(target, mu, s) * grad_s(target, mu, s)), a)
+            self.gradInput[{{}, i}] = -torch.cdiv(normal(target, mu, s), a)
+            self.gradInput[{{}, self.n + i}] = torch.cdiv(w * (normal(target, mu, s) * grad_mu(target, mu, s)), a)
+            self.gradInput[{{}, 2*self.n + i}] = torch.cdiv(w * (normal(target, mu, s) * grad_s(target, mu, s)), a)
         end
     end
     return self.gradInput
