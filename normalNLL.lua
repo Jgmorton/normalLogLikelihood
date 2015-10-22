@@ -26,8 +26,8 @@ local function grad_s(target, mu, s)
     return g1 + g2
 end
 
--- Computes log of sum of Gaussian components
-local function logSum(input, target, n)
+-- Computes sum of Gaussian components
+local function getSum(input, target, n)
     local sum = torch.zeros(input:size(1))
         for i = 1, n do
             local w = input[{{}, i}]
@@ -35,7 +35,7 @@ local function logSum(input, target, n)
             local s = input[{{}, 2*n + i}]
             sum = sum + w * normal(target, mu, s)
         end
-    return -torch.log(sum)
+    return sum
 end
 
 -- Returns loss
@@ -47,11 +47,11 @@ function normalNLL:updateOutput(input, target)
         self.output = -torch.log(normal(target, mu, s))
 
     elseif self.n > 1 and input:size(2) == 3*self.n then
-        self.output = logSum(input, target, self.n)
+        self.output = -torch.log(getSum(input, target, self.n))
     else
         error('Invalid number of inputs')
     end
-    return self.output
+    return torch.mean(self.output)
 end
 
 -- Returns gradients
@@ -60,6 +60,7 @@ function normalNLL:updateGradInput(input, target)
     self.gradInput:zero()
 
     if self.n == 1 then
+
         local mu = input[{{}, 1}] -- mean
         local s = input[{{}, 2}] -- std dev
 
@@ -71,7 +72,7 @@ function normalNLL:updateGradInput(input, target)
 
     else 
         -- Store constant value
-        local a = logSum(input, target, self.n)
+        local a = getSum(input, target, self.n)
         for i = 1, self.n do
             local w = input[{{}, i}]
             local mu = input[{{}, self.n + i}]
