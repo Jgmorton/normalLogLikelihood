@@ -24,7 +24,7 @@ local function getPi(target, input, n)
         local mu = input[{{}, n + i}]
         local s = input[{{}, 2*n + i}]
 
-        num[{{}, i}] = w * normal(target, mu, s)
+        num[{{}, i}] = torch.cmul(w, normal(target, mu, s))
     end
 
     for i = 1, input:size(1) do
@@ -103,11 +103,11 @@ function normalNLL:updateGradInput(input, target)
 
         for i = 1, self.n do
             -- Mean gradients
-            self.gradInput[{{}, self.n + i}] = pi[{{}, i}] * torch.cdiv(mu[{{}, i}] - target, torch.pow(s[{{}, i}], 2))
+            self.gradInput[{{}, self.n + i}] = torch.cmul(pi[{{}, i}], torch.cdiv(mu[{{}, i}] - target, torch.pow(s[{{}, i}], 2)))
 
             -- Std dev gradients
             self.gradInput[{{}, 2*self.n + i}] = torch.cdiv(pi[{{}, i}], s[{{}, i}]) - 
-            torch.cdiv(pi[{{}, i}], torch.pow(s[{{}, i}], 3)):mul(torch.norm(target - mu[{{}, i}])^2)
+            torch.cmul(pi[{{}, i}], torch.cdiv(torch.pow(target - mu[{{}, i}], 2), torch.pow(s[{{}, i}], 3)))
         end
 
     end
