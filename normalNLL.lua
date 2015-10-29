@@ -14,6 +14,25 @@ local function normal(target, mu, s)
     return torch.div(torch.cdiv(exparg, s), math.sqrt(2*math.pi))
 end
 
+-- Function to calculate quantity pi that is present in gradients
+local function getPi(target, input, n)
+    local num = torch.Tensor(input:size(1), n)
+    local pi = torch.Tensor(#num)
+
+    for i = 1, n do
+        local w = input[{{}, i}]
+        local mu = input[{{}, n + i}]
+        local s = input[{{}, 2*n + i}]
+
+        num[{{}, i}] = w * normal(target, mu, s)
+    end
+
+    for i = 1, input:size(1) do
+        pi[{i, {}}] = num[i]:div(torch.sum(num[i]))
+    end
+    return pi
+end
+
 -- Gradient wrt mu for normal dist
 local function grad_mu(target, mu, s)
     return torch.cdiv(mu - target, torch.pow(s, 2))
@@ -71,18 +90,26 @@ function normalNLL:updateGradInput(input, target)
         self.gradInput[{{}, 2}] = grad_s(target, mu, s)
 
     else 
-        -- Store constant value
-        local a = getSum(input, target, self.n)
-        for i = 1, self.n do
-            local w = input[{{}, i}]
-            local mu = input[{{}, self.n + i}]
-            local s = input[{{}, 2*self.n + i}]
+        -- Calculate pi
+        local pi = getPi(target, input, self.n)
 
-            -- Calculate gradientsno
-            self.gradInput[{{}, i}] = -torch.cdiv(normal(target, mu, s), a)
-            self.gradInput[{{}, self.n + i}] = torch.cdiv(w * (normal(target, mu, s) * grad_mu(target, mu, s)), a)
-            self.gradInput[{{}, 2*self.n + i}] = torch.cdiv(w * (normal(target, mu, s) * grad_s(target, mu, s)), a)
+        -- Extract various components of input
+        local w = input[{{}, {1, self.n}}]
+        local mu = input[{{}, {self.n + 1, 2*self.n}}]
+        local s = input[{{}, {2*self.n + 1, 3*self.n}}]
+
+        -- Weight gradients:
+        self.gradInput[{{}, {1, self.n}}] = -torch.cdiv(pi, w)
+
+        for i = 1, self.n do
+            -- Mean gradients
+            self.gradInput[{{}, self.n + i}] = pi[{{}, i}] * torch.cdiv(mu[{{}, i}] - target, torch.pow(s[{{}, i}], 2))
+
+            -- Std dev gradients
+            self.gradInput[{{}, 2*self.n + i}] = torch.cdiv(pi[{{}, i}], s[{{}, i}]) - 
+            torch.cdiv(pi[{{}, i}], torch.pow(s[{{}, i}], 3)):mul(torch.norm(target - mu[{{}, i}])^2)
         end
+
     end
     return self.gradInput
 end
