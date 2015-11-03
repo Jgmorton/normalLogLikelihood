@@ -1,30 +1,45 @@
 require 'nn'
 local normalNLL, parent = torch.class('normalNLL', 'nn.Criterion')
 
-function normalNLL:__init(n)
+function normalNLL:__init(n, mu, sigma)
     parent.__init(self)
     n = n or 1
+    mu = mu or 0
+    sigma = sigma or 0
     self.n = n
+    self.mu = mu
+    self.sigma = sigma
 end
 
 -- Compute pdf at target for normal dist w/ mean mu and std dev s
 local function normal(target, mu, s)
-    local arg = torch.cdiv(-torch.pow(target - mu, 2), torch.pow(s, 2)*2)
-    local exparg = torch.exp(arg)
-    return torch.div(torch.cdiv(exparg, s), math.sqrt(2*math.pi))
+    if type(mu) == 'number' then
+        local arg = -torch.pow(target - mu, 2)/(2*s^2)
+        local exparg = torch.exp(arg)
+        return exparg/(math.sqrt(2*math.pi)*s)
+    else
+        local arg = torch.cdiv(-torch.pow(target - mu, 2), torch.pow(s, 2)*2)
+        local exparg = torch.exp(arg)
+        return torch.div(torch.cdiv(exparg, s), math.sqrt(2*math.pi))
+    end
 end
 
 -- Function to calculate quantity pi that is present in gradients
-local function getPi(target, input, n)
-    local num = torch.Tensor(input:size(1), n)
+local function getPi(target, input, self)
+    local num = torch.Tensor(input:size(1), self.n)
     local pi = torch.Tensor(#num)
 
-    for i = 1, n do
-        local w = input[{{}, i}]
-        local mu = input[{{}, n + i}]
-        local s = input[{{}, 2*n + i}]
+    for i = 1, self.n do
 
-        num[{{}, i}] = torch.cmul(w, normal(target, mu, s))
+        if self.mu == 0 then
+            local w = input[{{}, i}]
+            local mu = input[{{}, self.n + i}]
+            local s = input[{{}, 2*self.n + selfi}]
+            num[{{}, i}] = torch.cmul(w, normal(target, mu, s))
+        else
+            local w = torch.exp(input[{{}, i}])
+            num[{{}, i}] = torch.cmul(w, normal(target, self.mu[i], self.sigma[i]))
+        end
     end
 
     for i = 1, input:size(1) do
@@ -59,16 +74,29 @@ end
 
 -- Returns loss
 function normalNLL:updateOutput(input, target)
-    -- Single normal distribution
-    if self.n == 1 and input:size(2) == 2 then
-        local mu = input[{{}, 1}] -- mean
-        local s = input[{{}, 2}] -- std dev
-        self.output = -torch.log(normal(target, mu, s))
+    if self.mu == 0 then
+        -- Single normal distribution
+        if self.n == 1 and input:size(2) == 2 then
+            local mu = input[{{}, 1}] -- mean
+            local s = input[{{}, 2}] -- std dev
+            self.output = -torch.log(normal(target, mu, s))
 
-    elseif self.n > 1 and input:size(2) == 3*self.n then
-        self.output = -torch.log(getSum(input, target, self.n))
+        elseif self.n > 1 and input:size(2) == 3*self.n then
+            self.output = -torch.log(getSum(input, target, self.n))
+        else
+            error('Invalid number of inputs')
+        end
     else
-        error('Invalid number of inputs')
+        if self.n > 1 and input:size(2) == self.n then
+            local sum = torch.zeros(input:size(1))
+            for i = 1, self.n do
+                local w = torch.exp(input[{{}, i}])
+                sum = sum + w * normal(target, self.mu[i], self.sigma[i])
+            end
+            self.output = -torch.log(sum)
+        else
+            error('Invalid number of inputs')
+        end
     end
     return torch.mean(self.output)
 end
@@ -89,27 +117,34 @@ function normalNLL:updateGradInput(input, target)
         -- Gradient wrt sigma
         self.gradInput[{{}, 2}] = grad_s(target, mu, s)
 
-    else 
+    else
         -- Calculate pi
-        local pi = getPi(target, input, self.n)
+        local pi = getPi(target, input, self)
 
-        -- Extract various components of input
-        local w = input[{{}, {1, self.n}}]
-        local mu = input[{{}, {self.n + 1, 2*self.n}}]
-        local s = input[{{}, {2*self.n + 1, 3*self.n}}]
+        if self.mu == 0 then 
 
-        -- Weight gradients:
-        self.gradInput[{{}, {1, self.n}}] = -torch.cdiv(pi, w)
+            -- Extract various components of input
+            local w = input[{{}, {1, self.n}}]
+            local mu = input[{{}, {self.n + 1, 2*self.n}}]
+            local s = input[{{}, {2*self.n + 1, 3*self.n}}]
 
-        for i = 1, self.n do
-            -- Mean gradients
-            self.gradInput[{{}, self.n + i}] = torch.cmul(pi[{{}, i}], torch.cdiv(mu[{{}, i}] - target, torch.pow(s[{{}, i}], 2)))
+            -- Weight gradients:
+            self.gradInput[{{}, {1, self.n}}] = -torch.cdiv(pi, w)
 
-            -- Std dev gradients
-            self.gradInput[{{}, 2*self.n + i}] = torch.cdiv(pi[{{}, i}], s[{{}, i}]) - 
-            torch.cmul(pi[{{}, i}], torch.cdiv(torch.pow(target - mu[{{}, i}], 2), torch.pow(s[{{}, i}], 3)))
+            for i = 1, self.n do
+                -- Mean gradients
+                self.gradInput[{{}, self.n + i}] = torch.cmul(pi[{{}, i}], torch.cdiv(mu[{{}, i}] - target, torch.pow(s[{{}, i}], 2)))
+
+                -- Std dev gradients
+                self.gradInput[{{}, 2*self.n + i}] = torch.cdiv(pi[{{}, i}], s[{{}, i}]) - 
+                torch.cmul(pi[{{}, i}], torch.cdiv(torch.pow(target - mu[{{}, i}], 2), torch.pow(s[{{}, i}], 3)))
+            end
+        else
+            local w = torch.exp(input[{{}, {1, self.n}}])
+
+            -- Weight gradients:
+            self.gradInput[{{}, {1, self.n}}] = -torch.cdiv(pi, w)
         end
-
     end
     return self.gradInput
 end
