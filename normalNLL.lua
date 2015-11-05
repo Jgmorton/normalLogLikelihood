@@ -34,7 +34,7 @@ local function getPi(target, input, self)
         if self.mu == 0 then
             local w = input[{{}, i}]
             local mu = input[{{}, self.n + i}]
-            local s = input[{{}, 2*self.n + selfi}]
+            local s = input[{{}, 2*self.n + i}]
             num[{{}, i}] = torch.cmul(w, normal(target, mu, s))
         else
             local w = torch.exp(input[{{}, i}])
@@ -91,7 +91,7 @@ function normalNLL:updateOutput(input, target)
             local sum = torch.zeros(input:size(1))
             for i = 1, self.n do
                 local w = torch.exp(input[{{}, i}])
-                sum = sum + w * normal(target, self.mu[i], self.sigma[i])
+                sum = sum + torch.cmul(w, normal(target, self.mu[i], self.sigma[i]))
             end
             self.output = -torch.log(sum)
         else
@@ -143,7 +143,7 @@ function normalNLL:updateGradInput(input, target)
             local w = torch.exp(input[{{}, {1, self.n}}])
 
             -- Weight gradients:
-            self.gradInput[{{}, {1, self.n}}] = -torch.cdiv(pi, w)
+            self.gradInput[{{}, {1, self.n}}] = -pi
         end
     end
     return self.gradInput
