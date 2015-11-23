@@ -146,5 +146,9 @@ function normalNLL:updateGradInput(input, target)
             self.gradInput[{{}, {1, self.n}}] = -pi
         end
     end
+
+    -- Clip extreme gradient values
+    self.gradInput = torch.cmin(self.gradInput, 5)
+    self.gradInput = torch.cmax(self.gradInput, -5)
     return self.gradInput
 end
